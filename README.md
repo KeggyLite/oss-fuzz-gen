@@ -1,128 +1,170 @@
-# A Framework for Fuzz Target Generation and Evaluation
+> **Форк проекта [google/oss-fuzz-gen](https://github.com/google/oss-fuzz-gen)**
 
-This framework generates fuzz targets for real-world `C`/`C++/Java/Python` projects with
-various Large Language Models (LLM) and benchmarks them via the
-[`OSS-Fuzz` platform](https://github.com/google/oss-fuzz).
+# Автоматический фаззинг cJSON с помощью OSS-Fuzz-Gen
 
-More details available in [AI-Powered Fuzzing: Breaking the Bug Hunting Barrier](https://security.googleblog.com/2023/08/ai-powered-fuzzing-breaking-bug-hunting.html):
-![Alt text](images/Overview.png "Overview")
+#### 1. развертывание  
+#### 2. конект с cJSON (коммит 3a7bd69)
+#### 3. Зафиксировать ограничения 
 
-Current supported models are:
-- Vertex AI code-bison
-- Vertex AI code-bison-32k
-- Gemini Pro
-- Gemini Ultra
-- Gemini Experimental
-- Gemini 1.5
-- OpenAI GPT-3.5-turbo
-- OpenAI GPT-4
-- OpenAI GPT-4o
-- OpenAI GPT-4o-mini
-- OpenAI GPT-4-turbo
-- OpenAI GPT-3.5-turbo (Azure)
-- OpenAI GPT-4 (Azure)
-- OpenAI GPT-4o (Azure)
 
-Generated fuzz targets are evaluated with four metrics against the most up-to-date data from production environment:
-- Compilability
-- Runtime crashes
-- Runtime coverage
-- Runtime line coverage diff against existing human-written fuzz targets in `OSS-Fuzz`.
+### 1. Развертывание
+Для развертывания в домашней среде была выбранна ОС Ubuntu 22.04 на гипервизоре VB.
+После старотовой установки было установленно следующее окружение в соответствии с USAGE.md:
+- Python 3.1
+- pip
+- venv
+- Git
+- Docker
+- API-KEY OpenRouter
+- 
+#### 1.1 Простые компоненты
 
-Here is a sample experiment result from 2024 Jan 31.
-The experiment included [1300+ benchmarks](./benchmark-sets/all) from 297 open-source projects.
+##### Установка Python 3.11+pip:
+```bash
+sudo apt update
+sudo apt install -y python3.11 python3.11-dev python3.11-venv
+sudo apt install -y python3-pip
+```
+##### Установка venv
+```bash
+sudo apt install -y python3.11-venv
+```
+##### Установка Git
+```bash
+sudo apt update
+sudo apt install -y git
+```
+##### Установка Docker
+```bash
+# 1. Обновление пакетов и установка зависимостей
+sudo apt update
+sudo apt install -y ca-certificates curl
 
-![image](https://github.com/google/oss-fuzz-gen/assets/759062/fa53698b-e44c-4b58-b5e7-798337c8b752)
+# 2. Добавление официального ключа Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-Overall, this framework manages to successfully leverage LLMs to generate valid fuzz targets (which generate non-zero coverage increase)
-for 160 C/C++ projects. The maximum line coverage increase is 29% from the existing human-written targets.
+# 3. Добавление репозитория Docker
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-Note that these reports are not public as they may contain undisclosed vulnerabilities.
+# 4. Установка Docker
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-## Usage
+# 5. Добавление пользователя в группу docker (чтобы не использовать sudo)
+sudo usermod -aG docker $USER
 
-Check our detailed [usage guide](./USAGE.md) for instructions on how to run this framework and generate reports based on the results.
+# 6. Применение изменений (требуется перезапуск сессии или выполнить команду ниже)
+newgrp docker
+```
+##### Проверка установленных комплектующих
+```bash
+# Проверка Python 3.11
+python3.11 --version
 
-## Independent Agent Execution and Evaluation
-You can also execute or evaluate individual agents without running full experiments, using the integrated agent execution framework.
-See the [framework's documentation](./agent_tests/readme.md) for detailed instructions on how to run individual agents or sequence of agents.
+# Проверка pip
+pip3 --version
 
-## Collaborations
-Interested in research or open-source community collaborations?
-Please feel free to create an issue or email us: oss-fuzz-team@google.com.
+# Проверка venv
+python3.11 -c "import venv; print('venv: OK')"
 
-<img src="images/Collaboration.png" width="200" height="200">
+# Проверка Git
+git --version
 
-## Bugs Discovered
+# Проверка Docker
+docker --version
+```
+##### Ожидаемый результат:
+<img width="669" height="461" alt="изображение" src="https://github.com/user-attachments/assets/6d0664b7-c5a3-43b2-a627-f1402792fed6" />
 
-So far, we have reported 30 new bugs/vulnerabilities found by automatically generated targets built
-by this framework:
-| Project |    Bug    |    LLM    | Prompt Builder | Target oracle |
-| ------- | --------- | --------- | --------------- | ------- |
-| [`cJSON`](https://github.com/google/oss-fuzz/tree/master/projects/cjson) | [OOB read](https://github.com/DaveGamble/cJSON/issues/800) | Vertex AI | [Default](prompts/template_xml) | Far reach, low coverage |
-| [`libplist`](https://github.com/google/oss-fuzz/tree/master/projects/libplist) | [OOB read](https://github.com/libimobiledevice/libplist/issues/244) | Vertex AI | [Default](prompts/template_xml) | Far reach, low coverage |
-| [`hunspell`](https://github.com/google/oss-fuzz/tree/master/projects/hunspell) | [OOB read](https://github.com/hunspell/hunspell/issues/996) | Vertex AI | [default](prompts/template_xml) | Far reach, low coverage |
-| [`zstd`](https://github.com/google/oss-fuzz/tree/master/projects/zstd) | [OOB write](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=67497) | Vertex AI | [default](prompts/template_xml) | Far reach, low coverage |
-| [`gdbm`](https://github.com/google/oss-fuzz/tree/master/projects/gdbm) | [Stack buffer underflow](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=67483) | Vertex AI | [default](prompts/template_xml) | Far reach, low coverage |
-| [`hoextdown`](https://github.com/google/oss-fuzz/tree/master/projects/hoextdown) | [Use of uninitialised memory](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=67516) | Vertex AI | [default](prompts/template_xml) | Far reach, low coverage |
-| [`pjsip`](https://github.com/google/oss-fuzz/tree/master/projects/pjsip) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71356) | Vertex AI | [Default](prompts/template_xml) | Low coverage with fuzz keyword + easy params far reach |
-| [`pjsip`](https://github.com/google/oss-fuzz/tree/master/projects/pjsip)  | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71357) | Vertex AI | [Default](prompts/template_xml) | Low coverage with fuzz keyword + easy params far reach |
-| [`gpac`](https://github.com/google/oss-fuzz/tree/master/projects/gpac) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71358) | Vertex AI | [Default](prompts/template_xml) | Low coverage with fuzz keyword + easy params far reach |
-| [`gpac`](https://github.com/google/oss-fuzz/tree/master/projects/gpac)  | [OOB read/write](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71542) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`gpac`](https://github.com/google/oss-fuzz/tree/master/projects/gpac)  | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71543) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`gpac`](https://github.com/google/oss-fuzz/tree/master/projects/gpac)  | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71544) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`sqlite3`](https://github.com/google/oss-fuzz/tree/master/projects/sqlite3) | [OOB read](https://issues.oss-fuzz.com/issues/42538590) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`htslib`](https://github.com/google/oss-fuzz/tree/master/projects/htslib) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71740) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`libical`](https://github.com/google/oss-fuzz/tree/master/projects/libical) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71741) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`croaring`](https://github.com/google/oss-fuzz/tree/master/projects/croaring) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71738) | Vertex AI | [Test-to-harness](prompts/template_xml) | All |
-| [`openssl`](https://github.com/google/oss-fuzz/tree/master/projects/openssl) | [CVE-2024-9143](https://www.cve.org/CVERecord?id=CVE-2024-9143) - [OOB read/write](https://g-issues.oss-fuzz.com/issues/42538437) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`liblouis`](https://github.com/google/oss-fuzz/tree/master/projects/liblouis) | [Use of uninitialised memory](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71354) | Vertex AI | Test-to-harness | Test identifier |
-| [`libucl`](https://github.com/google/oss-fuzz/tree/master/projects/libucl) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71359) | Vertex AI | [Default](prompts/template_xml) | Low coverage with fuzz keyword + easy params far reach |
-| [`openbabel`](https://github.com/google/oss-fuzz/tree/master/projects/openbabel) | [Use after free](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71360) | Vertex AI | [Default](prompts/template_xml) | Low coverage with fuzz keyword + easy params far reach |
-| [`libyang`](https://github.com/google/oss-fuzz/tree/master/projects/libyang) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71619) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`openbabel`](https://github.com/google/oss-fuzz/tree/master/projects/openbabel) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71650) | Vertex AI | [Default](prompts/template_xml) | All |
-| [`exiv2`](https://github.com/google/oss-fuzz/tree/master/projects/exiv2) | [OOB read](https://bugs.chromium.org/p/oss-fuzz/issues/detail?id=71759) | Vertex AI | [Default](prompts/template_xml) | All |
-| Undisclosed | Java RCE (pending maintainer triage) | Vertex AI |  [Default](prompts/template_xml) | Far reach, low coverage |
-| Undisclosed | Regexp DoS (pending maintainer triage) | Vertex AI |  [Default](prompts/template_xml) | Far reach, low coverage |
-| Undisclosed | [OOB read](https://issues.oss-fuzz.com/issues/370872803) | Vertex AI | [Default](prompts/template_xml) | All |
-| Undisclosed | [OOB write](https://issues.oss-fuzz.com/issues/378009361) | Vertex AI | [Default](prompts/template_xml) | All |
-| Undisclosed | [OOB read](https://issues.oss-fuzz.com/issues/391234167) | Vertex AI | [Default](prompts/template_xml) | All |
-| Undisclosed | [OOB read](https://issues.oss-fuzz.com/issues/391453674) | Vertex AI | [Default](prompts/template_xml) | All |
-| Undisclosed | [Use after free](https://issues.oss-fuzz.com/issues/391456091) | Vertex AI | Agent prompt | All |
+#### 1.2 API-key
+в данном эксперементе испоользовался ключ предоставляемый OpenRouter:
+Регистрация на OpenRouter -> Генерация API-ключа-> сохранить кей(предоставляется единожды)
+![Без имени](https://github.com/user-attachments/assets/b2aa5ae4-6516-4a52-ab34-641165690a27)
 
-These bugs could only have been discovered with newly generated targets. They were not reachable with existing OSS-Fuzz targets.
+![Без имени](https://github.com/user-attachments/assets/1a7fbf55-9571-46dc-96fc-58032e9fb5aa)
 
-## Current top coverage improvements by project
+далее необходимо передать API-ключ в ВМ через переменные окружения
+```bash
+export OPENROUTER_API_KEY="sk-or-v1-33dd***___****89f2d2f"
+export OPENAI_API_KEY="$OPENROUTER_API_KEY"
+export OPENAI_API_BASE="https://openrouter.ai/api/v1"
+```
+проверка, что ключ работает корректно на примере модели в бесплатном доступе 
+```bash
+ curl -X POST https://openrouter.ai/api/v1/chat/completions \
+  -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "openai/gpt-oss-120b:free",
+    "messages": [{"role": "user", "content": "Say OK in one word"}],
+    "max_tokens": 10
+  }'
+```
+ожидаемый результат в консоли + трек на сайте OpenRout
+![Без имени](https://github.com/user-attachments/assets/eff81112-314a-48ff-8549-8074cf48a751)
+<img width="669" height="587" alt="изображение" src="https://github.com/user-attachments/assets/b714f906-01e7-48e0-9767-4764e716493a" />
 
-| Project | Total coverage gain	| Total relative gain	| OSS-Fuzz-gen total covered lines | OSS-Fuzz-gen new covered lines | Existing covered lines | Total project lines |
-| --------| ------------------- | ------------------- | -------------------------------- | ------------------------------ | ---------------------- | ------------------- |
-| phmap | 98.42% | 205.75% | 1601 | 1181 | 574 | 1120 |
-| usbguard | 97.62% | 26.04% | 24550 | 5463 | 20979 | 3564 |
-| onednn | 96.67% | 7057.14% | 5434 | 5434 | 77 | 210 |
-| avahi | 82.06% | 155.90% | 3358 | 2814 | 1805 | 3046 |
-| pugixml | 72.98% | 194.95% | 9015 | 6646 | 3409 | 7662 |
-| librdkafka | 66.88% | 845.57% | 5019 | 4490 | 531 | 1169 |
-| casync | 66.75% | 903.23% | 1171 | 1120 | 124 | 1678 |
-| tomlplusplus | 61.06% | 331.10% | 4755 | 3652 | 1103 | 5981 |
-| astc-encoder | 59.35% | 177.88% | 2726 | 1745 | 981 | 2940 |
-| mruby | 48.56% | 0.00% | 34493 | 34493 | 0 | 71038 |
-| arduinojson | 42.10% | 85.80% | 3344 | 1800 | 2098 | 4276 |
-| json | 41.13% | 66.51% | 5051 | 3339 | 5020 | 8119 |
-| double-conversion | 40.40% | 88.12% | 1663 | 779 | 884 | 1928 |
-| tinyobjloader | 38.26% | 77.01% | 1157 | 717 | 931 | 1874 |
-| glog | 38.18% | 58.69% | 895 | 331 | 564 | 867 |
-| cppitertools | 35.78% | 45.07% | 253 | 151 | 335 | 422 |
-| eigen | 35.38% | 190.70% | 2643 | 1947 | 1021 | 5503 |
-| glaze | 34.55% | 30.06% | 2920 | 2416 | 8036 | 6993 |
-| rapidjson | 31.83% | 148.07% | 1585 | 958 | 647 | 3010 |
-| libunwind | 30.58% | 83.25% | 2899 | 1342 | 1612 | 4388 |
-| openh264 | 30.07% | 50.14% | 6607 | 5751 | 11470 | 19123 |
+### 2 был проведен ряд тестов для запуска механизма аналогичных приведенному в USAGE.md получавшие те или иные res в терминале:
 
-\* "Total project lines" measures the source code of the project-under-test compiled and linked by the preexisting human-written fuzz targets from OSS-Fuzz.
+ряд ошибок констатировался выбором неподдерживаемой модели.
 
-\* "Total coverage gain" is calculated using a denominator of the "Total project lines". "Total relative gain" is the increase in coverage compared to the old number of covered lines.
+```bash
+./run_all_experiments.py \
+    -y ./benchmark-sets/all/tinyxml2.yaml \
+    --model openai/gpt-oss-120b \
+    --work-dir ./results_gptoss \
+    --max-trials 2
+```
 
-\* Additional code from the project-under-test maybe included when compiling the new fuzz targets and result in high percentage gains.
+```log
+**** FINAL RESULTS: ****
 
-## Citing This Work
-Please click on the _'Cite this repository'_ button located on the right-hand side of this GitHub page for citation details.
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: ================================================================================
+*tinyxml2, void tinyxml2::XMLElement::SetAttribute(const char *, const char *)*
+Exception while running experiment: Bad model type openai/gpt-oss-120b
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: ================================================================================
+*tinyxml2, XMLNode * tinyxml2::XMLElement::ShallowClone(XMLDocument *)*
+Exception while running experiment: Bad model type openai/gpt-oss-120b
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: ================================================================================
+*tinyxml2, XMLAttribute * tinyxml2::XMLElement::FindOrCreateAttribute(const char *)*
+Exception while running experiment: Bad model type openai/gpt-oss-120b
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: ================================================================================
+*tinyxml2, char * tinyxml2::XMLElement::ParseDeep(char *, StrPair *, int *)*
+Exception while running experiment: Bad model type openai/gpt-oss-120b
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: ================================================================================
+*tinyxml2, bool tinyxml2::XMLPrinter::VisitEnter(const XMLElement &, const XMLAttribute *)*
+Exception while running experiment: Bad model type openai/gpt-oss-120b
+
+2026-04-11 04:34:00.615 INFO run_all_experiments - _print_experiment_results: **** TOTAL COVERAGE GAIN: ****
+```
+
+на гпт 3.5 с рядом корректив вывод стал следующим:
+```bash
+./run_all_experiments.py \
+    -y ./benchmark-sets/all/tinyxml2.yaml \
+    --model gpt-3.5-turbo \
+    --work-dir ./results_openrouter
+```
+```log
+2026-04-11 04:39:28.534 INFO _client - _send_single_request: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 403 Forbidden"
+2026-04-11 04:39:28.534 WARNING models - with_retry_on_error: LLM API Error when responding (attempt 3): Error code: 403 - {'error': {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', 'param': None, 'type': 'request_forbidden'}}
+2026-04-11 04:39:28.535 WARNING models - _delay_for_retry: Retry in 41 seconds...
+2026-04-11 04:39:31.555 INFO _client - _send_single_request: HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 403 Forbidden"
+2026-04-11 04:39:31.556 WARNING models - with_retry_on_error: LLM API Error when responding (attempt 3): Error code: 403 - {'error': {'code': 'unsupported_country_region_territory', 'message': 'Country, region, or territory not supported', 'param': None, 'type': 'request_forbidden'}}
+2026-04-11 04:39:31.556 WARNING models - _delay_for_retry: Retry in 45 seconds..
+```
+
+
+
+
+
